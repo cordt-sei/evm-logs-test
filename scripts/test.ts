@@ -1,6 +1,8 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
-import { GasPrice } from "@cosmjs/stargate";
+import { DirectSecp256k1HdWallet, Registry } from "@cosmjs/proto-signing";
+import { GasPrice, defaultRegistryTypes } from "@cosmjs/stargate";
+import { BinaryWriter } from "cosmjs-types/binary/binary";
+import { Type, Writer, Field } from "protobufjs";
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -9,13 +11,40 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CONTRACT_PATH = join(__dirname, "../artifacts/evm_logs_test.wasm");
 
-const RPC_ENDPOINT = "https://rpc.atlantic-2.seinetwork.io/";
-
-// Configuration
-const BATCH_SIZE = 10;
-const NUM_BATCHES = 10;
-const TOTAL_TOKENS = BATCH_SIZE * NUM_BATCHES;
+const NUM_COLLECTIONS = 3;
+const TOKENS_PER_COLLECTION = 100;
+const SINGLE_MSG_TOKENS = 50;
+const MULTI_MSG_TOKENS = 30;
 const RECIPIENT = "sei14v72v7hgzuvgck6v6jsgjacxnt6kdmhm3hv6de";
+const RPC_ENDPOINT = "https://rpc.atlantic-2.seinetwork.io/";
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+const msgRegisterPointer = new Type('MsgRegisterPointer')
+ .add(new Field('sender', 1, 'string'))
+ .add(new Field('pointer_type', 2, 'uint32'))
+ .add(new Field('erc_address', 3, 'string'));
+
+ const registerPointerType: {
+    typeUrl: string;
+    encode: (message: any, writer?: BinaryWriter) => BinaryWriter;
+    decode: (input: Uint8Array) => any;
+    fromPartial: (object: any) => any;
+  } = {
+    typeUrl: "/seiprotocol.seichain.evm.MsgRegisterPointer",
+    encode: (message: any, writer: BinaryWriter = BinaryWriter.create()) => {
+      const encoded = msgRegisterPointer.encode(message).finish();
+      writer.bytes(encoded);
+      return writer;
+    },
+    decode: (input: Uint8Array) => msgRegisterPointer.decode(input),
+    fromPartial: (object: any) => ({ ...object })
+  };
+
+interface Collection {
+   nftAddress: string;
+   pointerAddress: string;
+   tokens: string[];
+}
 
 async function main() {
    try {
@@ -26,64 +55,136 @@ async function main() {
        const [account] = await wallet.getAccounts();
        console.log(`Using account: ${account.address}`);
 
+       const registry = new Registry([
+           ...defaultRegistryTypes,
+           ["/seiprotocol.seichain.evm.MsgRegisterPointer", registerPointerType]
+       ]);
+
        const client = await SigningCosmWasmClient.connectWithSigner(
            RPC_ENDPOINT,
            wallet,
-           { gasPrice: GasPrice.fromString("0.1usei") }
+           { 
+               gasPrice: GasPrice.fromString("0.1usei"),
+               registry 
+           }
        );
 
-       console.log("Uploading contract...");
-       const wasm = fs.readFileSync(CONTRACT_PATH);
-       const uploadResult = await client.upload(account.address, wasm, "auto");
-       console.log(`Code ID: ${uploadResult.codeId}`);
+       const collections: Collection[] = [];
+       
+       for (let i = 0; i < NUM_COLLECTIONS; i++) {
+           console.log(`Deploying collection ${i + 1}/${NUM_COLLECTIONS}`);
+           
+           const wasm = fs.readFileSync(CONTRACT_PATH);
+           const uploadResult = await client.upload(account.address, wasm, "auto");
+           
+           const instantiateMsg = {
+               name: `Collection ${i}`,
+               symbol: `COL${i}`,
+               minter: account.address
+           };
 
-       const instantiateMsg = {
-           name: "EVM Logs Test",
-           symbol: "EVT",
-           minter: account.address
-       };
-
-       console.log("Instantiating...");
-       const { contractAddress } = await client.instantiate(
-           account.address,
-           uploadResult.codeId,
-           instantiateMsg,
-           "EVM Logs Test NFT",
-           "auto"
-       );
-       console.log(`Contract: ${contractAddress}`);
-
-       console.log(`Minting ${TOTAL_TOKENS} tokens...`);
-       for (let i = 0; i < TOTAL_TOKENS; i++) {
-           await client.execute(
+           const { contractAddress: nftAddress } = await client.instantiate(
                account.address,
-               contractAddress,
-               { mint: { token_id: i.toString(), owner: account.address } },
+               uploadResult.codeId,
+               instantiateMsg,
+               `Collection ${i}`,
                "auto"
            );
-           if (i % 10 === 0) console.log(`Minted ${i}`);
+
+           const registerMsg = {
+               typeUrl: "/seiprotocol.seichain.evm.MsgRegisterPointer",
+               value: {
+                   sender: account.address,
+                   pointer_type: 4,
+                   erc_address: nftAddress
+               }
+           };
+           
+           const registerResult = await client.signAndBroadcast(
+               account.address,
+               [registerMsg],
+               "auto"
+           );
+
+           // Modified pointer address extraction
+           let pointerAddress = '';
+           for (const event of registerResult.events) {
+               for (const attr of event.attributes) {
+                   if (attr.key === "pointer_address") {
+                       pointerAddress = attr.value;
+                       break;
+                   }
+               }
+               if (pointerAddress) break;
+           }
+
+           if (!pointerAddress) throw new Error("Pointer address not found in events");
+
+           collections.push({ nftAddress, pointerAddress, tokens: [] });
+           console.log(`Collection ${i} - NFT: ${nftAddress}, Pointer: ${pointerAddress}`);
+           await sleep(2000);
        }
 
-       const sends = Array.from({ length: NUM_BATCHES }, (_, batch) => ({
-           typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-           value: {
-               sender: account.address,
-               contract: contractAddress,
-               msg: Buffer.from(JSON.stringify({
-                   batch_send: {
-                       sends: Array.from({ length: BATCH_SIZE }, (_, i) => ({
-                           token_id: (batch * BATCH_SIZE + i).toString(),
-                           recipient: RECIPIENT
-                       }))
-                   }
-               })),
-               funds: []
+       for (const [idx, collection] of collections.entries()) {
+           console.log(`Minting collection ${idx}`);
+           for (let i = 0; i < TOKENS_PER_COLLECTION; i++) {
+               await client.execute(
+                   account.address,
+                   collection.nftAddress,
+                   { mint: { token_id: i.toString(), owner: account.address } },
+                   "auto"
+               );
+               collection.tokens.push(i.toString());
+               if (i % 10 === 0) {
+                   console.log(`Minted ${i} tokens`);
+                   await sleep(2000);
+               }
            }
-       }));
+       }
 
-       console.log("Executing batch transaction...");
-       const result = await client.signAndBroadcast(account.address, sends, "auto");
-       console.log("Tx hash:", result.transactionHash);
+       console.log("\nTesting transfer patterns...");
+
+       console.log("Pattern 1: Many tokens in one message");
+       const batchMsg = {
+           batch_send: {
+               sends: collections[0].tokens
+                   .slice(0, SINGLE_MSG_TOKENS)
+                   .map(tokenId => ({
+                       token_id: tokenId,
+                       recipient: RECIPIENT
+                   }))
+           }
+       };
+       
+       const result1 = await client.execute(
+           account.address,
+           collections[0].nftAddress,
+           batchMsg,
+           "auto"
+       );
+       console.log("Pattern 1 tx:", result1.transactionHash);
+       await sleep(2000);
+
+       console.log("Pattern 2: Multiple messages in one tx");
+       const messages = collections[1].tokens
+           .slice(0, MULTI_MSG_TOKENS)
+           .map(tokenId => ({
+               typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+               value: {
+                   sender: account.address,
+                   contract: collections[1].nftAddress,
+                   msg: Buffer.from(JSON.stringify({
+                       batch_send: {
+                           sends: [{ token_id: tokenId, recipient: RECIPIENT }]
+                       }
+                   })),
+                   funds: []
+               }
+           }));
+
+       const result2 = await client.signAndBroadcast(account.address, messages, "auto");
+       console.log("Pattern 2 tx:", result2.transactionHash);
+
    } catch (error) {
        console.error("Error:", error);
    }
