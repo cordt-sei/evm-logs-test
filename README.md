@@ -1,85 +1,119 @@
-# CosmWasm Starter Pack
+# EVM Logs Test
 
-This is a template to build smart contracts in Rust to run inside a
-[Cosmos SDK](https://github.com/cosmos/cosmos-sdk) module on all chains that enable it.
-To understand the framework better, please read the overview in the
-[cosmwasm repo](https://github.com/CosmWasm/cosmwasm/blob/master/README.md),
-and dig into the [cosmwasm docs](https://www.cosmwasm.com).
-This assumes you understand the theory and just want to get coding.
+A CosmWasm smart contract for testing EVM-like logs on Sei Network. This contract implements a simplified CW721 NFT contract with batch send functionality to test event emission patterns.
 
-## Creating a new repo from template
+## Features
 
-Assuming you have a recent version of Rust and Cargo installed
-(via [rustup](https://rustup.rs/)),
-then the following should get you a new repo to start a contract:
+- Basic CW721 NFT implementation
+- Batch send functionality (multiple NFTs in a single message)
+- Support for stacking multiple batch sends in a single transaction
 
-Install [cargo-generate](https://github.com/ashleygwilliams/cargo-generate) and cargo-run-script.
-Unless you did that before, run this line now:
+## Building
 
-```sh
-cargo install cargo-generate --features vendored-openssl
-cargo install cargo-run-script
+```bash
+# Build wasm
+cargo wasm
+
+# Optimize for deployment
+docker run --rm -v "$(pwd)":/code \
+  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  cosmwasm/optimizer:0.16.0
 ```
 
-Now, use it to create your new contract.
-Go to the folder in which you want to place it and run:
+## Testing
 
-**Latest**
+```bash
+# Unit tests
+cargo test
 
-```sh
-cargo generate --git https://github.com/CosmWasm/cw-template.git --name PROJECT_NAME
+# Integration tests (requires Node.js)
+cd scripts
+npm install
+ts-node test.ts
 ```
 
-For cloning minimal code repo:
+## Deployment and Testing
 
-```sh
-cargo generate --git https://github.com/CosmWasm/cw-template.git --name PROJECT_NAME -d minimal=true
+1. First, set up the testing environment:
+```bash
+# Install dependencies for deployment scripts
+cd scripts
+npm install @cosmjs/cosmwasm-stargate @cosmjs/proto-signing @cosmjs/stargate
+npm install typescript ts-node @types/node --save-dev
 ```
 
-You will now have a new folder called `PROJECT_NAME` (I hope you changed that to something else)
-containing a simple working contract and build system that you can customize.
-
-## Create a Repo
-
-After generating, you have a initialized local git repo, but no commits, and no remote.
-Go to a server (eg. github) and create a new upstream repo (called `YOUR-GIT-URL` below).
-Then run the following:
-
-```sh
-# this is needed to create a valid Cargo.lock file (see below)
-cargo check
-git branch -M main
-git add .
-git commit -m 'Initial Commit'
-git remote add origin YOUR-GIT-URL
-git push -u origin main
+2. Configure your test wallet:
+```typescript
+// In scripts/test.ts, update these values:
+const MNEMONIC = "your mnemonic here";
+const RECIPIENT = "recipient_address_here";  // A test wallet to receive NFTs
 ```
 
-## CI Support
+3. Deploy and test the contract:
+```bash
+# Run the deployment and test script
+ts-node test.ts
+```
 
-We have template configurations for both [GitHub Actions](.github/workflows/Basic.yml)
-and [Circle CI](.circleci/config.yml) in the generated project, so you can
-get up and running with CI right away.
+This will:
+- Upload the contract to atlantic-2 testnet
+- Instantiate a new instance
+- Mint 100 test NFTs
+- Execute 10 batch sends (10 NFTs each) in a single transaction
 
-One note is that the CI runs all `cargo` commands
-with `--locked` to ensure it uses the exact same versions as you have locally. This also means
-you must have an up-to-date `Cargo.lock` file, which is not auto-generated.
-The first time you set up the project (or after adding any dep), you should ensure the
-`Cargo.lock` file is updated, so the CI will test properly. This can be done simply by
-running `cargo check` or `cargo unit-test`.
+### Manual Testing with sei-cli
 
-## Using your project
+You can also test the contract manually using sei-cli:
 
-Once you have your custom repo, you should check out [Developing](./Developing.md) to explain
-more on how to run tests and develop code. Or go through the
-[online tutorial](https://docs.cosmwasm.com/) to get a better feel
-of how to develop.
+1. Store the contract:
+```bash
+sei-cli tx wasm store artifacts/evm_logs_test.wasm \
+  --from your_key \
+  --chain-id atlantic-2 \
+  --node https://rpc.atlantic-2.seinetwork.io/ \
+  --gas-prices 0.1usei \
+  --gas auto \
+  --gas-adjustment 1.3
+```
 
-[Publishing](./Publishing.md) contains useful information on how to publish your contract
-to the world, once you are ready to deploy it on a running blockchain. And
-[Importing](./Importing.md) contains information about pulling in other contracts or crates
-that have been published.
+2. Instantiate:
+```bash
+sei-cli tx wasm instantiate $CODE_ID '{"name":"Test","symbol":"TST","minter":"your_address"}' \
+  --from your_key \
+  --chain-id atlantic-2 \
+  --label "EVM Logs Test" \
+  --node https://rpc.atlantic-2.seinetwork.io/ \
+  --gas-prices 0.1usei
+```
 
-Please replace this README file with information about your specific project. You can keep
-the `Developing.md` and `Publishing.md` files as useful references, but please set some
-proper description in the README.
+3. Mint an NFT:
+```bash
+sei-cli tx wasm execute $CONTRACT_ADDRESS \
+  '{"mint":{"token_id":"1","owner":"your_address"}}' \
+  --from your_key \
+  --chain-id atlantic-2 \
+  --node https://rpc.atlantic-2.seinetwork.io/ \
+  --gas-prices 0.1usei
+```
+
+4. Execute a batch send:
+```bash
+sei-cli tx wasm execute $CONTRACT_ADDRESS \
+  '{"batch_send":{"sends":[{"token_id":"1","recipient":"recipient_address"}]}}' \
+  --from your_key \
+  --chain-id atlantic-2 \
+  --node https://rpc.atlantic-2.seinetwork.io/ \
+  --gas-prices 0.1usei
+```
+
+5. Query token owner:
+```bash
+sei-cli query wasm contract-state smart $CONTRACT_ADDRESS \
+  '{"owner_of":{"token_id":"1"}}' \
+  --node https://rpc.atlantic-2.seinetwork.io/
+```
+
+## License
+
+MIT
