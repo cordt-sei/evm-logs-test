@@ -3,6 +3,7 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { DirectSecp256k1HdWallet, Registry } from "@cosmjs/proto-signing";
 import { GasPrice, defaultRegistryTypes } from "@cosmjs/stargate";
+import { MsgStoreCode, MsgInstantiateContract, MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx";
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -10,7 +11,8 @@ import { registerPointerEncoding } from './proto_encoder.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const CONTRACT_PATH = join(__dirname, "../artifacts/evm_logs_test.wasm");
+const CONTRACT_PATH = join(dirname(dirname(__filename)), "artifacts/evm_logs_test.wasm");
+
 
 const NUM_COLLECTIONS = 3;
 const TOKENS_PER_COLLECTION = 100;
@@ -27,27 +29,30 @@ interface Collection {
 }
 
 async function main() {
-   try {
-       const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-           "tired zebra install glow own jeans unit shove diary brass super hover",
-           { prefix: "sei" }
-       );
-       const [account] = await wallet.getAccounts();
-       console.log(`Using account: ${account.address}`);
+    try {
+        const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
+            "tired zebra install glow own jeans unit shove diary brass super hover",
+            { prefix: "sei" }
+        );
+        const [account] = await wallet.getAccounts();
+        console.log(`Using account: ${account.address}`);
 
-       const registry = new Registry([
-        ...defaultRegistryTypes,
-        ["/seiprotocol.seichain.evm.MsgRegisterPointer", registerPointerEncoding]
-    ]);
+        const registry = new Registry([
+            ...defaultRegistryTypes,
+            ["/seiprotocol.seichain.evm.MsgRegisterPointer", registerPointerEncoding],
+            ["/cosmwasm.wasm.v1.MsgStoreCode", MsgStoreCode],
+            ["/cosmwasm.wasm.v1.MsgInstantiateContract", MsgInstantiateContract],
+            ["/cosmwasm.wasm.v1.MsgExecuteContract", MsgExecuteContract]
+        ]);
 
-       const client = await SigningCosmWasmClient.connectWithSigner(
-           RPC_ENDPOINT,
-           wallet,
-           { 
-               gasPrice: GasPrice.fromString("0.1usei"),
-               registry 
-           }
-       );
+        const client = await SigningCosmWasmClient.connectWithSigner(
+            RPC_ENDPOINT,
+            wallet,
+            { 
+                gasPrice: GasPrice.fromString("0.1usei"),
+                registry 
+            }
+        );
 
        const collections: Collection[] = [];
        
