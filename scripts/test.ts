@@ -1,11 +1,12 @@
+// scripts/test.ts
+
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { DirectSecp256k1HdWallet, Registry } from "@cosmjs/proto-signing";
 import { GasPrice, defaultRegistryTypes } from "@cosmjs/stargate";
-import { BinaryWriter } from "cosmjs-types/binary/binary";
-import { Type, Writer, Field } from "protobufjs";
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { registerPointerEncoding } from './proto_encoder.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,31 +20,10 @@ const RECIPIENT = "sei14v72v7hgzuvgck6v6jsgjacxnt6kdmhm3hv6de";
 const RPC_ENDPOINT = "https://rpc.atlantic-2.seinetwork.io/";
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-const msgRegisterPointer = new Type('MsgRegisterPointer')
- .add(new Field('sender', 1, 'string'))
- .add(new Field('pointer_type', 2, 'uint32'))
- .add(new Field('erc_address', 3, 'string'));
-
- const registerPointerType: {
-    typeUrl: string;
-    encode: (message: any, writer?: BinaryWriter) => BinaryWriter;
-    decode: (input: Uint8Array) => any;
-    fromPartial: (object: any) => any;
-  } = {
-    typeUrl: "/seiprotocol.seichain.evm.MsgRegisterPointer",
-    encode: (message: any, writer: BinaryWriter = BinaryWriter.create()) => {
-      const encoded = msgRegisterPointer.encode(message).finish();
-      writer.bytes(encoded);
-      return writer;
-    },
-    decode: (input: Uint8Array) => msgRegisterPointer.decode(input),
-    fromPartial: (object: any) => ({ ...object })
-  };
-
 interface Collection {
-   nftAddress: string;
-   pointerAddress: string;
-   tokens: string[];
+    nftAddress: string;
+    pointerAddress: string;
+    tokens: string[];
 }
 
 async function main() {
@@ -56,9 +36,9 @@ async function main() {
        console.log(`Using account: ${account.address}`);
 
        const registry = new Registry([
-           ...defaultRegistryTypes,
-           ["/seiprotocol.seichain.evm.MsgRegisterPointer", registerPointerType]
-       ]);
+        ...defaultRegistryTypes,
+        ["/seiprotocol.seichain.evm.MsgRegisterPointer", registerPointerEncoding]
+    ]);
 
        const client = await SigningCosmWasmClient.connectWithSigner(
            RPC_ENDPOINT,
