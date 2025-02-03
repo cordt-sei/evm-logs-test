@@ -1,4 +1,28 @@
 import protobuf from 'protobufjs/minimal.js';
+export const instantiateContractEncoding = {
+    encode: (message, writer = protobuf.Writer.create()) => {
+        if (message.sender)
+            writer.uint32(10).string(message.sender);
+        if (message.admin)
+            writer.uint32(18).string(message.admin);
+        if (message.codeId !== undefined)
+            writer.uint32(24).int64(message.codeId);
+        if (message.label)
+            writer.uint32(34).string(message.label);
+        if (message.msg?.length)
+            writer.uint32(42).bytes(message.msg);
+        if (message.funds?.length) {
+            for (const v of message.funds) {
+                writer.uint32(50).bytes(v);
+            }
+        }
+        return writer;
+    },
+    decode: (input, length) => {
+        return {};
+    },
+    fromPartial: (object) => ({ ...object })
+};
 export const registerPointerEncoding = {
     encode: (message, writer = protobuf.Writer.create()) => {
         if (message.sender)
@@ -18,7 +42,7 @@ export const storeCodeEncoding = {
     encode: (message, writer = protobuf.Writer.create()) => {
         if (message.sender)
             writer.uint32(10).string(message.sender);
-        if (message.wasmByteCode && message.wasmByteCode.length > 0) {
+        if (message.wasmByteCode?.length) {
             writer.uint32(18).bytes(message.wasmByteCode);
         }
         if (message.instantiatePermission) {
@@ -31,32 +55,6 @@ export const storeCodeEncoding = {
     },
     fromPartial: (object) => ({ ...object })
 };
-// In proto_encoder.js, modify instantiateContractEncoding:
-export const instantiateContractEncoding = {
-    encode: (message, writer = protobuf.Writer.create()) => {
-        if (message.sender)
-            writer.uint32(10).string(message.sender);
-        if (message.admin)
-            writer.uint32(18).string(message.admin);
-        if (message.codeId !== undefined)
-            writer.uint32(24).uint64(message.codeId);
-        if (message.label)
-            writer.uint32(34).string(message.label);
-        if (message.msg && message.msg.length > 0)
-            writer.uint32(42).bytes(message.msg);
-        if (message.funds && message.funds.length) {
-            for (const v of message.funds) {
-                writer.uint32(50).bytes(v);
-            }
-        }
-        return writer;
-    },
-    decode: (input, length) => {
-        return {};
-    },
-    fromPartial: (object) => ({ ...object })
-};
-
 export const executeContractEncoding = {
     encode: (message, writer = protobuf.Writer.create()) => {
         if (message.sender)
@@ -65,7 +63,7 @@ export const executeContractEncoding = {
             writer.uint32(18).string(message.contract);
         if (message.msg)
             writer.uint32(26).bytes(message.msg);
-        if (message.funds && message.funds.length) {
+        if (message.funds?.length) {
             for (const v of message.funds) {
                 writer.uint32(34).bytes(v);
             }

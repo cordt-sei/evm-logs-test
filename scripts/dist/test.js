@@ -48,6 +48,20 @@ async function main() {
                 symbol: `COL${i}`,
                 minter: account.address
             };
+            // After your instantiateMsg definition and before simulate
+            console.log("Proto fields:");
+            console.log("- sender:", account.address);
+            console.log("- codeId:", uploadResult.codeId, "type:", typeof uploadResult.codeId);
+            console.log("- label:", `Collection ${i}`);
+            console.log("- msg (hex):", Buffer.from(JSON.stringify(instantiateMsg)).toString('hex'));
+            const encodedProto = instantiateContractEncoding.encode({
+                sender: account.address,
+                codeId: uploadResult.codeId,
+                label: `Collection ${i}`,
+                msg: Buffer.from(JSON.stringify(instantiateMsg)),
+                funds: []
+            }).finish();
+            console.log("Encoded proto (hex):", Buffer.from(encodedProto).toString('hex'));
             // Estimate gas for instantiation
             const simulatedGas = await client.simulate(account.address, [
                 {
@@ -74,7 +88,17 @@ async function main() {
                 msg: instantiateMsg,
                 funds: []
             });
-            const { contractAddress: nftAddress } = await client.instantiate(account.address, uploadResult.codeId, instantiateMsg, `Collection ${i}`, fee);
+            const encodedMsg = Buffer.from(JSON.stringify(instantiateMsg));
+            console.log("Encoded message buffer:", encodedMsg);
+            const protoMsg = {
+                sender: account.address,
+                codeId: uploadResult.codeId,
+                label: `Collection ${i}`,
+                msg: encodedMsg,
+                funds: []
+            };
+            console.log("Proto message:", instantiateContractEncoding.encode(protoMsg).finish());
+            const { contractAddress: nftAddress } = await client.instantiate(account.address, uploadResult.codeId, encodedMsg, `Collection ${i}`, fee);
             const registerMsg = {
                 typeUrl: "/seiprotocol.seichain.evm.MsgRegisterPointer",
                 value: {

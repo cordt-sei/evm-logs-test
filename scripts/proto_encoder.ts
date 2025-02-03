@@ -1,3 +1,5 @@
+// scripts/proto_encoder.ts
+
 import { TsProtoGeneratedType } from "@cosmjs/proto-signing";
 import protobuf, { Long } from 'protobufjs/minimal.js';
 
@@ -14,7 +16,7 @@ export const instantiateContractEncoding: TsProtoGeneratedType = {
   encode: (message: InstantiateMessage, writer: protobuf.Writer = protobuf.Writer.create()): protobuf.Writer => {
     if (message.sender) writer.uint32(10).string(message.sender);
     if (message.admin) writer.uint32(18).string(message.admin);
-    if (message.codeId !== undefined) writer.uint32(24).uint64(message.codeId);
+    if (message.codeId !== undefined) writer.uint32(24).int64(message.codeId);
     if (message.label) writer.uint32(34).string(message.label);
     if (message.msg?.length) writer.uint32(42).bytes(message.msg);
     if (message.funds?.length) {
