@@ -79,6 +79,7 @@ async function main() {
                 symbol: `COL${i}`,
                 minter: account.address
             };
+
             // Estimate gas for instantiation
             const simulatedGas = await client.simulate(
                 account.address,
@@ -100,6 +101,16 @@ async function main() {
                 amount: [{ denom: "usei", amount: "1000" }],
                 gas: Math.ceil(simulatedGas * 1.3).toString()
             };
+
+            console.log("Code ID type:", typeof uploadResult.codeId);
+            console.log("Code ID value:", uploadResult.codeId);
+            console.log("Instantiate message:", {
+                sender: account.address,
+                codeId: uploadResult.codeId,
+                label: `Collection ${i}`,
+                msg: instantiateMsg,
+                funds: []
+            });
 
             const { contractAddress: nftAddress } = await client.instantiate(
                 account.address,

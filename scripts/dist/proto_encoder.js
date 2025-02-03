@@ -31,17 +31,18 @@ export const storeCodeEncoding = {
     },
     fromPartial: (object) => ({ ...object })
 };
+// In proto_encoder.js, modify instantiateContractEncoding:
 export const instantiateContractEncoding = {
     encode: (message, writer = protobuf.Writer.create()) => {
         if (message.sender)
             writer.uint32(10).string(message.sender);
         if (message.admin)
             writer.uint32(18).string(message.admin);
-        if (message.codeId)
+        if (message.codeId !== undefined)
             writer.uint32(24).uint64(message.codeId);
         if (message.label)
             writer.uint32(34).string(message.label);
-        if (message.msg)
+        if (message.msg && message.msg.length > 0)
             writer.uint32(42).bytes(message.msg);
         if (message.funds && message.funds.length) {
             for (const v of message.funds) {
@@ -55,6 +56,7 @@ export const instantiateContractEncoding = {
     },
     fromPartial: (object) => ({ ...object })
 };
+
 export const executeContractEncoding = {
     encode: (message, writer = protobuf.Writer.create()) => {
         if (message.sender)
