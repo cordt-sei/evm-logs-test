@@ -44,7 +44,14 @@ async function main() {
                 symbol: `COL${i}`,
                 minter: account.address,
             };
-            const { contractAddress: nftAddress } = await client.instantiate(account.address, uploadResult.codeId, instantiateMsg, `Collection ${i}`, "auto");
+            console.log("Debug - InstantiateMsg:", {
+                sender: account.address,
+                codeId: uploadResult.codeId,
+                msg: instantiateMsg,
+                label: `Collection ${i}`
+            });
+            const { contractAddress: nftAddress } = await client.instantiate(account.address, uploadResult.codeId, Buffer.from(JSON.stringify(instantiateMsg)), // Explicitly encode message
+            `Collection ${i}`, "auto");
             const registerMsg = {
                 typeUrl: "/seiprotocol.seichain.evm.MsgRegisterPointer",
                 value: {

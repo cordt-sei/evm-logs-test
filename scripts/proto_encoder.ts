@@ -39,10 +39,7 @@ export const instantiateContractEncoding: TsProtoGeneratedType = {
             writer.uint32(18).string(message.admin);
         }
         if (message.codeId !== undefined) {
-            const longValue = typeof message.codeId === 'number' ? 
-                Long.fromNumber(message.codeId) : 
-                message.codeId;
-            writer.uint32(24).uint64(longValue);
+            writer.uint32(24).uint64(Long.fromValue(message.codeId));
         }
         if (message.label) {
             writer.uint32(34).string(message.label);

@@ -74,9 +74,16 @@ async function main() {
         minter: account.address,
       };
 
+      console.log("Debug - InstantiateMsg:", {
+        sender: account.address,
+        codeId: uploadResult.codeId,
+        msg: instantiateMsg,
+        label: `Collection ${i}`
+      });
+      
       const { contractAddress: nftAddress } = await client.instantiate(
         account.address,
-        uploadResult.codeId,
+        Number(uploadResult.codeId), // Ensure number type
         instantiateMsg,
         `Collection ${i}`,
         "auto"
