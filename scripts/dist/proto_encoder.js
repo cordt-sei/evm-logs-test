@@ -1,3 +1,5 @@
+// scripts/proto_encoder.ts
+
 import protobuf from 'protobufjs/minimal.js';
 export const instantiateContractEncoding = {
     encode: (message, writer = protobuf.Writer.create()) => {
