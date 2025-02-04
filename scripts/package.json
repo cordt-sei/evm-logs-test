@@ -6,12 +6,13 @@
   "scripts": {
     "build": "yarn install && tsc",
     "clean": "rm -rf ./build ./node_modules",
-    "start": "node ./dist/script1.js"
+    "start": "node ./dist/test.js"
   },
   "dependencies": {
     "@cosmjs/cosmwasm-stargate": "^0.33.0",
     "@cosmjs/proto-signing": "^0.33.0",
     "@cosmjs/stargate": "^0.33.0",
+    "bech32": "^2.0.0",
     "buffer": "^6.0.3",
     "path": "^0.12.7",
     "protobufjs": "^7.4.0"

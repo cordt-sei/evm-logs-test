@@ -1,92 +1,125 @@
-import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
-import { GasPrice } from "@cosmjs/stargate";
+import { createClient } from "./clientSetup.js";
+import { MSG_REGISTER_POINTER_TYPE_URL } from "./registry.js";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
-import { dirname, join } from 'path';
+import { dirname, join } from "path";
+import { bech32 } from "bech32";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const CONTRACT_PATH = join(__dirname, "../artifacts/evm_logs_test.wasm");
-
+const CONTRACT_PATH = join(__dirname, "../../artifacts/evm_logs_test.wasm");
 const RPC_ENDPOINT = "https://rpc.atlantic-2.seinetwork.io/";
 
-// Configuration
+const MNEMONIC = "tired zebra install glow own jeans unit shove diary brass super hover";
+const PREFIX = "sei";
+const GAS_PRICE = "0.1usei";
 const BATCH_SIZE = 10;
 const NUM_BATCHES = 10;
 const TOTAL_TOKENS = BATCH_SIZE * NUM_BATCHES;
 const RECIPIENT = "sei14v72v7hgzuvgck6v6jsgjacxnt6kdmhm3hv6de";
 
+function seiToEvmAddress(seiAddress: string): string {
+    const decoded = bech32.decode(seiAddress);
+    const addressBytes = Buffer.from(bech32.fromWords(decoded.words));
+    return "0x" + addressBytes.slice(0, 20).toString('hex');
+}
+
 async function main() {
-   try {
-       const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
-           "tired zebra install glow own jeans unit shove diary brass super hover",
-           { prefix: "sei" }
-       );
-       const [account] = await wallet.getAccounts();
-       console.log(`Using account: ${account.address}`);
+    try {
+        const { wallet, client } = await createClient(RPC_ENDPOINT, MNEMONIC, PREFIX, GAS_PRICE);
+        const [account] = await wallet.getAccounts();
+        console.log(`Using account: ${account.address}`);
 
-       const client = await SigningCosmWasmClient.connectWithSigner(
-           RPC_ENDPOINT,
-           wallet,
-           { gasPrice: GasPrice.fromString("0.1usei") }
-       );
+        console.log("Uploading contract...");
+        const wasm = fs.readFileSync(CONTRACT_PATH);
+        const { codeId } = await client.upload(account.address, wasm, "auto");
+        console.log(`Code ID: ${codeId}`);
 
-       console.log("Uploading contract...");
-       const wasm = fs.readFileSync(CONTRACT_PATH);
-       const uploadResult = await client.upload(account.address, wasm, "auto");
-       console.log(`Code ID: ${uploadResult.codeId}`);
+        const instantiateMsg = {
+            name: "EVM Logs Test",
+            symbol: "EVT",
+            minter: account.address
+        };
 
-       const instantiateMsg = {
-           name: "EVM Logs Test",
-           symbol: "EVT",
-           minter: account.address
-       };
+        console.log("Instantiating...");
+        const { contractAddress } = await client.instantiate(
+            account.address,
+            codeId,
+            instantiateMsg,
+            "EVM Logs Test NFT",
+            "auto"
+        );
+        console.log(`Contract: ${contractAddress}`);
 
-       console.log("Instantiating...");
-       const { contractAddress } = await client.instantiate(
-           account.address,
-           uploadResult.codeId,
-           instantiateMsg,
-           "EVM Logs Test NFT",
-           "auto"
-       );
-       console.log(`Contract: ${contractAddress}`);
+        const evmAddress = seiToEvmAddress(contractAddress);
+        console.log("Contract address format:", contractAddress);
+        console.log("EVM address format:", evmAddress);
+        
+        const registerPointerMsg = {
+            typeUrl: MSG_REGISTER_POINTER_TYPE_URL,
+            value: {
+                sender: account.address,
+                pointer_type: 4,
+                erc_address: evmAddress
+            }
+        };
+        
+        console.log("Register pointer message:", JSON.stringify(registerPointerMsg, null, 2));
 
-       console.log(`Minting ${TOTAL_TOKENS} tokens...`);
-       for (let i = 0; i < TOTAL_TOKENS; i++) {
-           await client.execute(
-               account.address,
-               contractAddress,
-               { mint: { token_id: i.toString(), owner: account.address } },
-               "auto"
-           );
-           if (i % 10 === 0) console.log(`Minted ${i}`);
-       }
+        const pointerResult = await client.signAndBroadcast(
+            account.address,
+            [registerPointerMsg],
+            "auto"
+        );
+        console.log("Pointer registration tx hash:", pointerResult.transactionHash);
 
-       const sends = Array.from({ length: NUM_BATCHES }, (_, batch) => ({
-           typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-           value: {
-               sender: account.address,
-               contract: contractAddress,
-               msg: Buffer.from(JSON.stringify({
-                   batch_send: {
-                       sends: Array.from({ length: BATCH_SIZE }, (_, i) => ({
-                           token_id: (batch * BATCH_SIZE + i).toString(),
-                           recipient: RECIPIENT
-                       }))
-                   }
-               })),
-               funds: []
-           }
-       }));
+        let pointerAddress = "";
+        for (const event of pointerResult.events) {
+            for (const attr of event.attributes) {
+                if (attr.key === "pointer_address") {
+                    pointerAddress = attr.value;
+                    break;
+                }
+            }
+            if (pointerAddress) break;
+        }
+        console.log("Pointer address:", pointerAddress);
 
-       console.log("Executing batch transaction...");
-       const result = await client.signAndBroadcast(account.address, sends, "auto");
-       console.log("Tx hash:", result.transactionHash);
-   } catch (error) {
-       console.error("Error:", error);
-   }
+        console.log(`Minting ${TOTAL_TOKENS} tokens...`);
+        for (let i = 0; i < TOTAL_TOKENS; i++) {
+            await client.execute(
+                account.address,
+                contractAddress,
+                { mint: { token_id: i.toString(), owner: account.address } },
+                "auto"
+            );
+            if (i % 10 === 0) console.log(`Minted ${i}`);
+        }
+
+        const sends = Array.from({ length: NUM_BATCHES }, (_, batch) => ({
+            typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+            value: {
+                sender: account.address,
+                contract: contractAddress,
+                msg: Buffer.from(JSON.stringify({
+                    batch_send: {
+                        sends: Array.from({ length: BATCH_SIZE }, (_, i) => ({
+                            token_id: (batch * BATCH_SIZE + i).toString(),
+                            recipient: RECIPIENT
+                        }))
+                    }
+                })),
+                funds: []
+            }
+        }));
+
+        console.log("Executing batch transaction...");
+        const result = await client.signAndBroadcast(account.address, sends, "auto");
+        console.log("Tx hash:", result.transactionHash);
+
+    } catch (error) {
+        console.error("Error:", error);
+    }
 }
 
 main();
