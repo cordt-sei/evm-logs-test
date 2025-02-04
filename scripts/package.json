@@ -4,8 +4,9 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "build": "tsc",
-    "start": "node --experimental-specifier-resolution=node --loader ts-node/esm"
+    "build": "yarn install && tsc",
+    "clean": "rm -rf ./build ./node_modules",
+    "start": "node ./dist/script1.js"
   },
   "dependencies": {
     "@cosmjs/cosmwasm-stargate": "^0.33.0",
