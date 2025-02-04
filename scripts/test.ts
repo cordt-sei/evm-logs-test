@@ -10,17 +10,13 @@ import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
-const filteredDefaults = defaultRegistryTypes.filter(
-  ([typeUrl]) => typeUrl !== "/cosmwasm.wasm.v1.MsgInstantiateContract"
-);
-
 const customRegistry = new Registry([
-  ["/cosmwasm.wasm.v1.MsgInstantiateContract", instantiateContractEncoding],
-  ...filteredDefaults,
-  ["/seiprotocol.seichain.evm.MsgRegisterPointer", registerPointerEncoding],
-  ["/cosmwasm.wasm.v1.MsgStoreCode", storeCodeEncoding],
-]);
-
+    ["/cosmwasm.wasm.v1.MsgInstantiateContract", instantiateContractEncoding],
+    ...defaultRegistryTypes.filter(([typeUrl]) => typeUrl !== "/cosmwasm.wasm.v1.MsgInstantiateContract"),
+    ["/seiprotocol.seichain.evm.MsgRegisterPointer", registerPointerEncoding],
+    ["/cosmwasm.wasm.v1.MsgStoreCode", storeCodeEncoding]
+  ]);
+  
 const GAS_LIMIT = 4000000;
 const GAS_PRICE = GasPrice.fromString("0.1usei");
 const fee = calculateFee(GAS_LIMIT, GAS_PRICE);
