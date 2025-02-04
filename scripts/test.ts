@@ -1,3 +1,5 @@
+// scripts/test.ts
+
 import * as dotenv from "dotenv";
 import { createClient } from "./clientSetup.js";
 import { MSG_REGISTER_POINTER_TYPE_URL } from "./registry.js";
@@ -6,14 +8,14 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { bech32 } from "bech32";
 
-dotenv.config()
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CONTRACT_PATH = join(__dirname, "../../artifacts/evm_logs_test.wasm");
 const RPC_ENDPOINT = "https://rpc.atlantic-2.seinetwork.io/";
 
-const MNEMONIC = process.env.MNEMONIC as string;
+dotenv.config({ path: join(__dirname, "../../.env") });
+
+const MNEMONIC = process.env.MNEMONIC;
 if (!MNEMONIC) {
   throw new Error("MNEMONIC is not set in .env");
 }
