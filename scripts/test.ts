@@ -1,8 +1,8 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
 import { GasPrice } from "@cosmjs/stargate";
-import * as fs from 'fs';
-import { fileURLToPath } from 'url';
+import * as fs from "fs";
+import { fileURLToPath } from "url";
 import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
