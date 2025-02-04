@@ -1,12 +1,14 @@
 // scripts/proto_encoder.ts
 import protobuf from "protobufjs/minimal.js";
+import Long from "long";
 export const instantiateContractEncoding = {
     encode(message, writer = protobuf.Writer.create()) {
         if (message.sender) {
             writer.uint32(10).string(message.sender);
         }
-        if (message.codeId !== undefined) {
-            writer.uint32(16).uint64(message.codeId);
+        if (message.code_id !== undefined) {
+            const long = Long.fromValue(message.code_id);
+            writer.uint32(16).uint64(long);
         }
         if (message.label) {
             writer.uint32(26).string(message.label);
@@ -27,7 +29,11 @@ export const instantiateContractEncoding = {
     decode(input, length) {
         const reader = input instanceof protobuf.Reader ? input : protobuf.Reader.create(input);
         const end = length === undefined ? reader.len : reader.pos + length;
-        const message = {};
+        const message = {
+            code_id: Long.UZERO,
+            label: "",
+            msg: new Uint8Array()
+        };
         while (reader.pos < end) {
             const tag = reader.uint32();
             switch (tag >>> 3) {
@@ -35,22 +41,21 @@ export const instantiateContractEncoding = {
                     message.sender = reader.string();
                     break;
                 case 2:
-                    message.admin = reader.string();
+                    message.code_id = reader.uint64();
                     break;
                 case 3:
-                    message.codeId = reader.uint64();
-                    break;
-                case 4:
                     message.label = reader.string();
                     break;
-                case 5:
+                case 4:
                     message.msg = reader.bytes();
                     break;
-                case 6:
-                    if (!message.funds) {
+                case 5:
+                    if (!message.funds)
                         message.funds = [];
-                    }
                     message.funds.push(reader.bytes());
+                    break;
+                case 6:
+                    message.admin = reader.string();
                     break;
                 default:
                     reader.skipType(tag & 7);
@@ -60,14 +65,14 @@ export const instantiateContractEncoding = {
         return message;
     },
     fromPartial(object) {
-        const message = {};
-        message.sender = object.sender ?? undefined;
-        message.admin = object.admin ?? undefined;
-        message.codeId = object.codeId ?? undefined;
-        message.label = object.label ?? undefined;
-        message.msg = object.msg ?? undefined;
-        message.funds = object.funds?.slice() ?? undefined;
-        return message;
+        return {
+            sender: object.sender ?? undefined,
+            code_id: object.code_id ?? Long.UZERO,
+            label: object.label ?? "",
+            msg: object.msg ?? new Uint8Array(),
+            funds: object.funds?.slice() ?? undefined,
+            admin: object.admin ?? undefined
+        };
     }
 };
 export const registerPointerEncoding = {

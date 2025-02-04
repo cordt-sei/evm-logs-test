@@ -5,7 +5,6 @@ import { registerPointerEncoding, storeCodeEncoding, instantiateContractEncoding
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import protobuf from "protobufjs";
 const customRegistry = new Registry([
     ["/cosmwasm.wasm.v1.MsgInstantiateContract", instantiateContractEncoding],
     ...defaultRegistryTypes.filter(([typeUrl]) => typeUrl !== "/cosmwasm.wasm.v1.MsgInstantiateContract"),
@@ -45,14 +44,14 @@ async function main() {
                 symbol: `COL${i}`,
                 minter: account.address,
             };
-            const encodedMsg = instantiateContractEncoding.encode({
+            const { contractAddress: nftAddress } = await client.instantiate(account.address, Number(uploadResult.codeId), // Use Number instead of Long
+            {
                 sender: account.address,
-                codeId: Number(uploadResult.codeId),
+                code_id: uploadResult.codeId,
                 msg: Buffer.from(JSON.stringify(instantiateMsg)),
-                label: `Collection ${i}`
-            }, protobuf.Writer.create());
-            console.log("Encoded message:", encodedMsg.finish());
-            const { contractAddress: nftAddress } = await client.instantiate(account.address, uploadResult.codeId, instantiateMsg, `Collection ${i}`, fee);
+                label: `Collection ${i}`,
+                funds: []
+            }, `Collection ${i}`, fee);
             const registerMsg = {
                 typeUrl: "/seiprotocol.seichain.evm.MsgRegisterPointer",
                 value: {
