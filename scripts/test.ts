@@ -16,7 +16,7 @@ const GAS_PRICE = "0.1usei";
 const BATCH_SIZE = 10;
 const NUM_BATCHES = 10;
 const TOTAL_TOKENS = BATCH_SIZE * NUM_BATCHES;
-const RECIPIENT = "sei14v72v7hgzuvgck6v6jsgjacxnt6kdmhm3hv6de";
+const RECIPIENT = "sei1wev8ptzj27aueu04wgvvl4gvurax6rj5yrag90";
 
 function seiToEvmAddress(seiAddress: string): string {
     const decoded = bech32.decode(seiAddress);
@@ -59,7 +59,7 @@ async function main() {
             typeUrl: MSG_REGISTER_POINTER_TYPE_URL,
             value: {
                 sender: account.address,
-                pointer_type: 4,
+                pointer_type: 1,
                 erc_address: evmAddress
             }
         };
