@@ -1,35 +1,42 @@
 // scripts/proto_encoder.ts
 
 import { TsProtoGeneratedType } from "@cosmjs/proto-signing";
-import protobuf, { Long } from 'protobufjs/minimal.js';
+import protobuf from "protobufjs/minimal.js";
+import Long from "long";
 
 interface InstantiateMessage {
   sender?: string;
-  admin?: string;
   codeId?: number | Long;
   label?: string;
   msg?: Uint8Array;
-  funds?: Uint8Array[];
+  funds?: any[];
+  admin?: string;
 }
 
 export const instantiateContractEncoding: TsProtoGeneratedType = {
-  encode: (message: InstantiateMessage, writer: protobuf.Writer = protobuf.Writer.create()): protobuf.Writer => {
+  encode: (
+    message: InstantiateMessage,
+    writer: protobuf.Writer = protobuf.Writer.create()
+  ): protobuf.Writer => {
     if (message.sender) writer.uint32(10).string(message.sender);
-    if (message.admin) writer.uint32(18).string(message.admin);
-    if (message.codeId !== undefined) writer.uint32(24).int64(message.codeId);
-    if (message.label) writer.uint32(34).string(message.label);
-    if (message.msg?.length) writer.uint32(42).bytes(message.msg);
-    if (message.funds?.length) {
+    if (message.codeId !== undefined) {
+      // Change: Use tag 18 for bytes encoding and properly encode as bytes
+      writer.uint32(18).bytes(Buffer.from(message.codeId.toString()));
+    }
+    if (message.label) writer.uint32(26).string(message.label);
+    if (message.msg && message.msg.length) writer.uint32(34).bytes(message.msg);
+    if (message.funds && message.funds.length) {
       for (const v of message.funds) {
-        writer.uint32(50).bytes(v);
+        writer.uint32(42).bytes(v);
       }
     }
+    if (message.admin) writer.uint32(50).string(message.admin);
     return writer;
   },
   decode: (input: Uint8Array | protobuf.Reader, length?: number): any => {
     return {};
   },
-  fromPartial: (object: Partial<InstantiateMessage>): any => ({ ...object })
+  fromPartial: (object: Partial<InstantiateMessage>): any => ({ ...object }),
 };
 
 interface RegisterPointerMessage {
@@ -39,16 +46,21 @@ interface RegisterPointerMessage {
 }
 
 export const registerPointerEncoding: TsProtoGeneratedType = {
-  encode: (message: RegisterPointerMessage, writer: protobuf.Writer = protobuf.Writer.create()): protobuf.Writer => {
+  encode: (
+    message: RegisterPointerMessage,
+    writer: protobuf.Writer = protobuf.Writer.create()
+  ): protobuf.Writer => {
     if (message.sender) writer.uint32(10).string(message.sender);
-    if (message.pointer_type !== undefined) writer.uint32(16).uint32(message.pointer_type);
-    if (message.erc_address) writer.uint32(26).string(message.erc_address);
+    if (message.pointer_type !== undefined)
+      writer.uint32(16).uint32(message.pointer_type);
+    if (message.erc_address)
+      writer.uint32(26).string(message.erc_address);
     return writer;
   },
   decode: (input: Uint8Array | protobuf.Reader, length?: number): any => {
     return {};
   },
-  fromPartial: (object: Partial<RegisterPointerMessage>): any => ({ ...object })
+  fromPartial: (object: Partial<RegisterPointerMessage>): any => ({ ...object }),
 };
 
 interface StoreCodeMessage {
@@ -58,7 +70,10 @@ interface StoreCodeMessage {
 }
 
 export const storeCodeEncoding: TsProtoGeneratedType = {
-  encode: (message: StoreCodeMessage, writer: protobuf.Writer = protobuf.Writer.create()): protobuf.Writer => {
+  encode: (
+    message: StoreCodeMessage,
+    writer: protobuf.Writer = protobuf.Writer.create()
+  ): protobuf.Writer => {
     if (message.sender) writer.uint32(10).string(message.sender);
     if (message.wasmByteCode?.length) {
       writer.uint32(18).bytes(message.wasmByteCode);
@@ -71,7 +86,7 @@ export const storeCodeEncoding: TsProtoGeneratedType = {
   decode: (input: Uint8Array | protobuf.Reader, length?: number): any => {
     return {};
   },
-  fromPartial: (object: Partial<StoreCodeMessage>): any => ({ ...object })
+  fromPartial: (object: Partial<StoreCodeMessage>): any => ({ ...object }),
 };
 
 interface ExecuteContractMessage {
@@ -82,7 +97,10 @@ interface ExecuteContractMessage {
 }
 
 export const executeContractEncoding: TsProtoGeneratedType = {
-  encode: (message: ExecuteContractMessage, writer: protobuf.Writer = protobuf.Writer.create()): protobuf.Writer => {
+  encode: (
+    message: ExecuteContractMessage,
+    writer: protobuf.Writer = protobuf.Writer.create()
+  ): protobuf.Writer => {
     if (message.sender) writer.uint32(10).string(message.sender);
     if (message.contract) writer.uint32(18).string(message.contract);
     if (message.msg) writer.uint32(26).bytes(message.msg);
@@ -96,5 +114,5 @@ export const executeContractEncoding: TsProtoGeneratedType = {
   decode: (input: Uint8Array | protobuf.Reader, length?: number): any => {
     return {};
   },
-  fromPartial: (object: Partial<ExecuteContractMessage>): any => ({ ...object })
+  fromPartial: (object: Partial<ExecuteContractMessage>): any => ({ ...object }),
 };
