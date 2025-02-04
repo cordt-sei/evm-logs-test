@@ -86,7 +86,7 @@ async function main() {
       
       const { contractAddress: nftAddress } = await client.instantiate(
         account.address,
-        Number(uploadResult.codeId),
+        uploadResult.codeId,
         instantiateMsg,
         `Collection ${i}`,
         fee

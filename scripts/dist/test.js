@@ -52,7 +52,7 @@ async function main() {
                 label: `Collection ${i}`
             }, protobuf.Writer.create());
             console.log("Encoded message:", encodedMsg.finish());
-            const { contractAddress: nftAddress } = await client.instantiate(account.address, Number(uploadResult.codeId), instantiateMsg, `Collection ${i}`, fee);
+            const { contractAddress: nftAddress } = await client.instantiate(account.address, uploadResult.codeId, instantiateMsg, `Collection ${i}`, fee);
             const registerMsg = {
                 typeUrl: "/seiprotocol.seichain.evm.MsgRegisterPointer",
                 value: {

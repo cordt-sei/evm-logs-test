@@ -1,3 +1,5 @@
+// scripts/proto_encoder.ts
+
 import { TsProtoGeneratedType } from "@cosmjs/proto-signing";
 import protobuf from "protobufjs/minimal.js";
 import Long from "long";
@@ -31,29 +33,29 @@ interface ExecuteContractMessage extends BaseMessage {
 }
 
 export const instantiateContractEncoding: TsProtoGeneratedType = {
-    encode(message: InstantiateMessage, writer: protobuf.Writer = protobuf.Writer.create()): protobuf.Writer {
-        if (message.sender) {
-            writer.uint32(10).string(message.sender);
-        }
-        if (message.admin) {
-            writer.uint32(18).string(message.admin);
-        }
-        if (message.codeId !== undefined) {
-            writer.uint32(24).uint64(Long.fromValue(message.codeId));
-        }
-        if (message.label) {
-            writer.uint32(34).string(message.label);
-        }
-        if (message.msg?.length) {
-            writer.uint32(42).bytes(message.msg);
-        }
-        if (message.funds?.length) {
-            for (const v of message.funds) {
-                writer.uint32(50).bytes(v);
-            }
-        }
-        return writer;
-    },
+  encode(message: InstantiateMessage, writer: protobuf.Writer = protobuf.Writer.create()): protobuf.Writer {
+      if (message.sender) {
+          writer.uint32(10).string(message.sender);
+      }
+      if (message.codeId !== undefined) {
+          writer.uint32(16).uint64(message.codeId);
+      }
+      if (message.label) {
+          writer.uint32(26).string(message.label);
+      }
+      if (message.msg?.length) {
+          writer.uint32(34).bytes(message.msg);
+      }
+      if (message.funds?.length) {
+          for (const v of message.funds) {
+              writer.uint32(42).bytes(v);
+          }
+      }
+      if (message.admin) {
+          writer.uint32(50).string(message.admin);
+      }
+      return writer;
+  },
 
     decode(input: Uint8Array | protobuf.Reader, length?: number): InstantiateMessage {
         const reader = input instanceof protobuf.Reader ? input : protobuf.Reader.create(input);
