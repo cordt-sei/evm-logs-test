@@ -1,3 +1,4 @@
+import * as dotenv from "dotenv";
 import { createClient } from "./clientSetup.js";
 import { MSG_REGISTER_POINTER_TYPE_URL } from "./registry.js";
 import * as fs from "fs";
@@ -5,12 +6,18 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { bech32 } from "bech32";
 
+dotenv.config()
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CONTRACT_PATH = join(__dirname, "../../artifacts/evm_logs_test.wasm");
 const RPC_ENDPOINT = "https://rpc.atlantic-2.seinetwork.io/";
 
-const MNEMONIC = "tired zebra install glow own jeans unit shove diary brass super hover";
+const MNEMONIC = process.env.MNEMONIC as string;
+if (!MNEMONIC) {
+  throw new Error("MNEMONIC is not set in .env");
+}
+
 const PREFIX = "sei";
 const GAS_PRICE = "0.1usei";
 const BATCH_SIZE = 10;
