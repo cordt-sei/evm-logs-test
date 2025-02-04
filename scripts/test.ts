@@ -9,6 +9,7 @@ import {
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import protobuf from "protobufjs";
 
 const customRegistry = new Registry([
     ["/cosmwasm.wasm.v1.MsgInstantiateContract", instantiateContractEncoding],
@@ -74,19 +75,21 @@ async function main() {
         minter: account.address,
       };
 
-      console.log("Debug - InstantiateMsg:", {
+      const encodedMsg = instantiateContractEncoding.encode({
         sender: account.address,
-        codeId: uploadResult.codeId,
-        msg: instantiateMsg,
+        codeId: Number(uploadResult.codeId),
+        msg: Buffer.from(JSON.stringify(instantiateMsg)),
         label: `Collection ${i}`
-      });
+      }, protobuf.Writer.create());
+      
+      console.log("Encoded message:", encodedMsg.finish());
       
       const { contractAddress: nftAddress } = await client.instantiate(
         account.address,
-        Number(uploadResult.codeId), // Ensure number type
+        Number(uploadResult.codeId),
         instantiateMsg,
         `Collection ${i}`,
-        "auto"
+        fee
       );
 
       const registerMsg = {
