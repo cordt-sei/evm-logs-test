@@ -7,8 +7,8 @@ export const instantiateContractEncoding = {
             writer.uint32(10).string(message.sender);
         }
         if (message.code_id !== undefined) {
-            const long = Long.fromValue(message.code_id);
-            writer.uint32(16).uint64(long);
+            const codeIdBuf = Buffer.from(String(message.code_id));
+            writer.uint32(18).bytes(codeIdBuf);
         }
         if (message.label) {
             writer.uint32(26).string(message.label);
@@ -41,7 +41,7 @@ export const instantiateContractEncoding = {
                     message.sender = reader.string();
                     break;
                 case 2:
-                    message.code_id = reader.uint64();
+                    message.code_id = reader.bytes().toString();
                     break;
                 case 3:
                     message.label = reader.string();

@@ -44,14 +44,7 @@ async function main() {
                 symbol: `COL${i}`,
                 minter: account.address,
             };
-            const { contractAddress: nftAddress } = await client.instantiate(account.address, Number(uploadResult.codeId), // Use Number instead of Long
-            {
-                sender: account.address,
-                code_id: uploadResult.codeId,
-                msg: Buffer.from(JSON.stringify(instantiateMsg)),
-                label: `Collection ${i}`,
-                funds: []
-            }, `Collection ${i}`, fee);
+            const { contractAddress: nftAddress } = await client.instantiate(account.address, Number(uploadResult.codeId), instantiateMsg, `Collection ${i}`, fee);
             const registerMsg = {
                 typeUrl: "/seiprotocol.seichain.evm.MsgRegisterPointer",
                 value: {
