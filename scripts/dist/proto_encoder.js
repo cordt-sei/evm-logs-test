@@ -1,50 +1,127 @@
-// scripts/proto_encoder.ts
 import protobuf from "protobufjs/minimal.js";
+import Long from "long";
 export const instantiateContractEncoding = {
-    encode: (message, writer = protobuf.Writer.create()) => {
-        if (message.sender)
+    encode(message, writer = protobuf.Writer.create()) {
+        if (message.sender) {
             writer.uint32(10).string(message.sender);
-        if (message.codeId !== undefined) {
-            // Change: Use tag 18 for bytes encoding and properly encode as bytes
-            writer.uint32(18).bytes(Buffer.from(message.codeId.toString()));
         }
-        if (message.label)
-            writer.uint32(26).string(message.label);
-        if (message.msg && message.msg.length)
-            writer.uint32(34).bytes(message.msg);
-        if (message.funds && message.funds.length) {
+        if (message.admin) {
+            writer.uint32(18).string(message.admin);
+        }
+        if (message.codeId !== undefined) {
+            const longValue = typeof message.codeId === 'number' ?
+                Long.fromNumber(message.codeId) :
+                message.codeId;
+            writer.uint32(24).uint64(longValue);
+        }
+        if (message.label) {
+            writer.uint32(34).string(message.label);
+        }
+        if (message.msg?.length) {
+            writer.uint32(42).bytes(message.msg);
+        }
+        if (message.funds?.length) {
             for (const v of message.funds) {
-                writer.uint32(42).bytes(v);
+                writer.uint32(50).bytes(v);
             }
         }
-        if (message.admin)
-            writer.uint32(50).string(message.admin);
         return writer;
     },
-    decode: (input, length) => {
-        return {};
+    decode(input, length) {
+        const reader = input instanceof protobuf.Reader ? input : protobuf.Reader.create(input);
+        const end = length === undefined ? reader.len : reader.pos + length;
+        const message = {};
+        while (reader.pos < end) {
+            const tag = reader.uint32();
+            switch (tag >>> 3) {
+                case 1:
+                    message.sender = reader.string();
+                    break;
+                case 2:
+                    message.admin = reader.string();
+                    break;
+                case 3:
+                    message.codeId = reader.uint64();
+                    break;
+                case 4:
+                    message.label = reader.string();
+                    break;
+                case 5:
+                    message.msg = reader.bytes();
+                    break;
+                case 6:
+                    if (!message.funds) {
+                        message.funds = [];
+                    }
+                    message.funds.push(reader.bytes());
+                    break;
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+            }
+        }
+        return message;
     },
-    fromPartial: (object) => ({ ...object }),
+    fromPartial(object) {
+        const message = {};
+        message.sender = object.sender ?? undefined;
+        message.admin = object.admin ?? undefined;
+        message.codeId = object.codeId ?? undefined;
+        message.label = object.label ?? undefined;
+        message.msg = object.msg ?? undefined;
+        message.funds = object.funds?.slice() ?? undefined;
+        return message;
+    }
 };
 export const registerPointerEncoding = {
-    encode: (message, writer = protobuf.Writer.create()) => {
-        if (message.sender)
+    encode(message, writer = protobuf.Writer.create()) {
+        if (message.sender) {
             writer.uint32(10).string(message.sender);
-        if (message.pointer_type !== undefined)
+        }
+        if (message.pointer_type !== undefined) {
             writer.uint32(16).uint32(message.pointer_type);
-        if (message.erc_address)
+        }
+        if (message.erc_address) {
             writer.uint32(26).string(message.erc_address);
+        }
         return writer;
     },
-    decode: (input, length) => {
-        return {};
+    decode(input, length) {
+        const reader = input instanceof protobuf.Reader ? input : protobuf.Reader.create(input);
+        const end = length === undefined ? reader.len : reader.pos + length;
+        const message = {};
+        while (reader.pos < end) {
+            const tag = reader.uint32();
+            switch (tag >>> 3) {
+                case 1:
+                    message.sender = reader.string();
+                    break;
+                case 2:
+                    message.pointer_type = reader.uint32();
+                    break;
+                case 3:
+                    message.erc_address = reader.string();
+                    break;
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+            }
+        }
+        return message;
     },
-    fromPartial: (object) => ({ ...object }),
+    fromPartial(object) {
+        const message = {};
+        message.sender = object.sender ?? undefined;
+        message.pointer_type = object.pointer_type ?? undefined;
+        message.erc_address = object.erc_address ?? undefined;
+        return message;
+    }
 };
 export const storeCodeEncoding = {
-    encode: (message, writer = protobuf.Writer.create()) => {
-        if (message.sender)
+    encode(message, writer = protobuf.Writer.create()) {
+        if (message.sender) {
             writer.uint32(10).string(message.sender);
+        }
         if (message.wasmByteCode?.length) {
             writer.uint32(18).bytes(message.wasmByteCode);
         }
@@ -53,19 +130,48 @@ export const storeCodeEncoding = {
         }
         return writer;
     },
-    decode: (input, length) => {
-        return {};
+    decode(input, length) {
+        const reader = input instanceof protobuf.Reader ? input : protobuf.Reader.create(input);
+        const end = length === undefined ? reader.len : reader.pos + length;
+        const message = {};
+        while (reader.pos < end) {
+            const tag = reader.uint32();
+            switch (tag >>> 3) {
+                case 1:
+                    message.sender = reader.string();
+                    break;
+                case 2:
+                    message.wasmByteCode = reader.bytes();
+                    break;
+                case 5:
+                    message.instantiatePermission = reader.bytes();
+                    break;
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+            }
+        }
+        return message;
     },
-    fromPartial: (object) => ({ ...object }),
+    fromPartial(object) {
+        const message = {};
+        message.sender = object.sender ?? undefined;
+        message.wasmByteCode = object.wasmByteCode ?? undefined;
+        message.instantiatePermission = object.instantiatePermission ?? undefined;
+        return message;
+    }
 };
 export const executeContractEncoding = {
-    encode: (message, writer = protobuf.Writer.create()) => {
-        if (message.sender)
+    encode(message, writer = protobuf.Writer.create()) {
+        if (message.sender) {
             writer.uint32(10).string(message.sender);
-        if (message.contract)
+        }
+        if (message.contract) {
             writer.uint32(18).string(message.contract);
-        if (message.msg)
+        }
+        if (message.msg) {
             writer.uint32(26).bytes(message.msg);
+        }
         if (message.funds?.length) {
             for (const v of message.funds) {
                 writer.uint32(34).bytes(v);
@@ -73,8 +179,41 @@ export const executeContractEncoding = {
         }
         return writer;
     },
-    decode: (input, length) => {
-        return {};
+    decode(input, length) {
+        const reader = input instanceof protobuf.Reader ? input : protobuf.Reader.create(input);
+        const end = length === undefined ? reader.len : reader.pos + length;
+        const message = {};
+        while (reader.pos < end) {
+            const tag = reader.uint32();
+            switch (tag >>> 3) {
+                case 1:
+                    message.sender = reader.string();
+                    break;
+                case 2:
+                    message.contract = reader.string();
+                    break;
+                case 3:
+                    message.msg = reader.bytes();
+                    break;
+                case 4:
+                    if (!message.funds) {
+                        message.funds = [];
+                    }
+                    message.funds.push(reader.bytes());
+                    break;
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+            }
+        }
+        return message;
     },
-    fromPartial: (object) => ({ ...object }),
+    fromPartial(object) {
+        const message = {};
+        message.sender = object.sender ?? undefined;
+        message.contract = object.contract ?? undefined;
+        message.msg = object.msg ?? undefined;
+        message.funds = object.funds?.slice() ?? undefined;
+        return message;
+    }
 };

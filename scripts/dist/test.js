@@ -5,18 +5,13 @@ import { registerPointerEncoding, storeCodeEncoding, instantiateContractEncoding
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-// ─── BUILD A CUSTOM REGISTRY ──────────────────────────────────────────────
-// Remove the default registration for MsgInstantiateContract so that our custom
-// encoder (which encodes codeId as a string) takes precedence.
 const filteredDefaults = defaultRegistryTypes.filter(([typeUrl]) => typeUrl !== "/cosmwasm.wasm.v1.MsgInstantiateContract");
 const customRegistry = new Registry([
-    // Prepend our custom encoder.
     ["/cosmwasm.wasm.v1.MsgInstantiateContract", instantiateContractEncoding],
     ...filteredDefaults,
     ["/seiprotocol.seichain.evm.MsgRegisterPointer", registerPointerEncoding],
     ["/cosmwasm.wasm.v1.MsgStoreCode", storeCodeEncoding],
 ]);
-// ─── CONFIGURATION ──────────────────────────────────────────────────────────
 const GAS_LIMIT = 4000000;
 const GAS_PRICE = GasPrice.fromString("0.1usei");
 const fee = calculateFee(GAS_LIMIT, GAS_PRICE);
@@ -50,7 +45,7 @@ async function main() {
                 symbol: `COL${i}`,
                 minter: account.address,
             };
-            const { contractAddress: nftAddress } = await client.instantiate(account.address, uploadResult.codeId, instantiateMsg, `Collection ${i}`, fee, { admin: account.address });
+            const { contractAddress: nftAddress } = await client.instantiate(account.address, uploadResult.codeId, instantiateMsg, `Collection ${i}`, "auto");
             const registerMsg = {
                 typeUrl: "/seiprotocol.seichain.evm.MsgRegisterPointer",
                 value: {
