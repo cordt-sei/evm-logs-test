@@ -46,14 +46,18 @@ async function main() {
         console.log(`Contract: ${contractAddress}`);
 
         console.log("Registering pointer...");
+        console.log("Contract address format:", typeof contractAddress, contractAddress);
+        
         const registerPointerMsg = {
             typeUrl: MSG_REGISTER_POINTER_TYPE_URL,
             value: {
                 sender: account.address,
                 pointer_type: 4,
-                erc_address: contractAddress.toLowerCase()
+                erc_address: contractAddress
             }
         };
+        
+        console.log("Register pointer message:", JSON.stringify(registerPointerMsg, null, 2));
 
         const pointerResult = await client.signAndBroadcast(
             account.address,
