@@ -1,15 +1,15 @@
+import { createClient } from "./clientSetup.js";
+import { MSG_REGISTER_POINTER_TYPE_URL } from "./registry.js";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { createClient } from "./clientSetup.js";
-import { MSG_REGISTER_POINTER_TYPE_URL } from "./registry.js";
+import { bech32 } from "bech32";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CONTRACT_PATH = join(__dirname, "../../artifacts/evm_logs_test.wasm");
 const RPC_ENDPOINT = "https://rpc.atlantic-2.seinetwork.io/";
 
-// Configuration
 const MNEMONIC = "tired zebra install glow own jeans unit shove diary brass super hover";
 const PREFIX = "sei";
 const GAS_PRICE = "0.1usei";
@@ -17,6 +17,12 @@ const BATCH_SIZE = 10;
 const NUM_BATCHES = 10;
 const TOTAL_TOKENS = BATCH_SIZE * NUM_BATCHES;
 const RECIPIENT = "sei14v72v7hgzuvgck6v6jsgjacxnt6kdmhm3hv6de";
+
+function seiToEvmAddress(seiAddress: string): string {
+    const decoded = bech32.decode(seiAddress);
+    const addressBytes = Buffer.from(bech32.fromWords(decoded.words));
+    return "0x" + addressBytes.slice(0, 20).toString('hex');
+}
 
 async function main() {
     try {
@@ -45,15 +51,16 @@ async function main() {
         );
         console.log(`Contract: ${contractAddress}`);
 
-        console.log("Registering pointer...");
-        console.log("Contract address format:", typeof contractAddress, contractAddress);
+        const evmAddress = seiToEvmAddress(contractAddress);
+        console.log("Contract address format:", contractAddress);
+        console.log("EVM address format:", evmAddress);
         
         const registerPointerMsg = {
             typeUrl: MSG_REGISTER_POINTER_TYPE_URL,
             value: {
                 sender: account.address,
                 pointer_type: 4,
-                erc_address: contractAddress
+                erc_address: evmAddress
             }
         };
         
