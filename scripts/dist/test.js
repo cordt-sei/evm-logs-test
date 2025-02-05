@@ -1,3 +1,4 @@
+// scripts/test.ts
 import * as dotenv from "dotenv";
 import { createClient } from "./clientSetup.js";
 import { MSG_REGISTER_POINTER_TYPE_URL } from "./registry.js";
@@ -5,19 +6,16 @@ import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { bech32 } from "bech32";
-dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CONTRACT_PATH = join(__dirname, "../../artifacts/evm_logs_test.wasm");
 const RPC_ENDPOINT = "https://rpc.atlantic-2.seinetwork.io/";
+dotenv.config({ path: join(__dirname, "../../.env") });
 const MNEMONIC = process.env.MNEMONIC;
-if (!MNEMONIC) {
-    throw new Error("MNEMONIC is not set in .env");
-}
 const PREFIX = "sei";
 const GAS_PRICE = "0.1usei";
-const BATCH_SIZE = 10;
-const NUM_BATCHES = 10;
+const BATCH_SIZE = 1;
+const NUM_BATCHES = 1;
 const TOTAL_TOKENS = BATCH_SIZE * NUM_BATCHES;
 const RECIPIENT = "sei1wev8ptzj27aueu04wgvvl4gvurax6rj5yrag90";
 function seiToEvmAddress(seiAddress) {
@@ -49,7 +47,7 @@ async function main() {
             typeUrl: MSG_REGISTER_POINTER_TYPE_URL,
             value: {
                 sender: account.address,
-                pointer_type: 1,
+                pointer_type: 4,
                 erc_address: evmAddress
             }
         };
@@ -67,7 +65,7 @@ async function main() {
             if (pointerAddress)
                 break;
         }
-        console.log("Pointer address:", pointerAddress);
+        console.log("Pointer address:", evmAddress);
         console.log(`Minting ${TOTAL_TOKENS} tokens...`);
         for (let i = 0; i < TOTAL_TOKENS; i++) {
             await client.execute(account.address, contractAddress, { mint: { token_id: i.toString(), owner: account.address } }, "auto");
