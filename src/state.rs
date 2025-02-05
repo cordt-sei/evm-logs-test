@@ -2,12 +2,19 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
 use cw_storage_plus::{Item, Map};
 
-pub const TOKEN_INFO: Map<&str, TokenInfo> = Map::new("token_info");
-pub const MINTER: Item<Addr> = Item::new("minter");
-pub const NAME: Item<String> = Item::new("name");
-pub const SYMBOL: Item<String> = Item::new("symbol");
+pub const ADMIN: Item<Addr> = Item::new("admin");
+pub const COLLECTIONS: Map<&str, CollectionData> = Map::new("collections");
+pub const PENDING_COLLECTION: Item<PendingCollection> = Item::new("pending_collection");
 
 #[cw_serde]
-pub struct TokenInfo {
-    pub owner: Addr,
+pub struct CollectionData {
+    pub address: Addr,
+    pub name: String,
+    pub symbol: String,
+}
+
+#[cw_serde]
+pub struct PendingCollection {
+    pub name: String,
+    pub symbol: String,
 }

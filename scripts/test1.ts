@@ -1,149 +1,193 @@
-// scripts/test.ts
-
 import * as dotenv from "dotenv";
 import { createClient } from "./clientSetup.js";
-import { MSG_REGISTER_POINTER_TYPE_URL } from "./registry.js";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import { bech32 } from "bech32";
+import * as path from "path";
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { StdFee } from "@cosmjs/stargate";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const CONTRACT_PATH = join(__dirname, "../../artifacts/evm_logs_test.wasm");
+const __dirname = path.dirname(__filename);
+const FACTORY_PATH = path.join(__dirname, "..", "..", "artifacts", "evm_logs_test.wasm");
+const CW721_PATH = path.join(__dirname, "..", "..", "artifacts", "cw721_base.wasm");
 const RPC_ENDPOINT = "https://rpc.atlantic-2.seinetwork.io/";
 
-dotenv.config({ path: join(__dirname, "../../.env") });
+dotenv.config({ path: path.join(__dirname, "..", "..", ".env") });
 
 const MNEMONIC = process.env.MNEMONIC ?? (() => {
   throw new Error("MNEMONIC is not set in .env");
 })();
+
 const PREFIX = "sei";
-const GAS_PRICE = "0.1usei";
-const GAS_MULTIPLIER = 1.2; // Add a buffer to estimated gas
-const BATCH_SIZE = 10;
-const NUM_BATCHES = 10;
-const TOTAL_TOKENS = BATCH_SIZE * NUM_BATCHES;
+const GAS_PRICE = "0.02usei";  // Changed to match clientSetup.ts
+const COLLECTIONS_COUNT = 2;
+const BATCH_SIZE = 5;
+const TOKENS_PER_COLLECTION = 10;
 const RECIPIENT = "sei1wev8ptzj27aueu04wgvvl4gvurax6rj5yrag90";
 
-/**
- * Converts a SEI Bech32 address to an Ethereum address format.
- */
-function seiToEvmAddress(seiAddress: string) {
-  const decoded = bech32.decode(seiAddress);
-  const addressBytes = Buffer.from(bech32.fromWords(decoded.words));
-  return "0x" + addressBytes.slice(0, 20).toString("hex");
+const FIXED_GAS = {
+  UPLOAD: 2_000_000,
+  INSTANTIATE: 500_000,
+  EXECUTE: 300_000,
+  BATCH: 1_000_000
+};
+
+async function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/**
- * Simulate and estimate gas before broadcasting a transaction.
- */
-async function estimateGas(client: SigningCosmWasmClient, sender: string, messages: { typeUrl: string; value: { sender: string; pointer_type: number; erc_address: string; }; }[] | { typeUrl: string; value: { sender: string; contract: string; msg: Buffer<ArrayBuffer>; funds: never[]; }; }[] | { typeUrl: string; value: { sender: string; wasm_byte_code: Buffer<ArrayBufferLike>; }; }[] | { typeUrl: string; value: { sender: string; code_id: number; msg: { name: string; symbol: string; minter: string; }; funds: never[]; }; }[] | { typeUrl: string; value: { sender: string; contract: string; msg: { mint: { token_id: string; owner: string; }; }; funds: never[]; }; }[]) {
+async function verifyFile(path: string, desc: string) {
   try {
-    const gasUsed = await client.simulate(sender, messages, "");
-    const estimatedGas = Math.ceil(gasUsed * GAS_MULTIPLIER);
-    console.log(`Estimated Gas: ${estimatedGas}`);
-    return estimatedGas;
-  } catch (error) {
-    console.warn("Gas estimation failed, falling back to auto:", error);
-    return "auto"; // Fallback to auto if estimation fails
+    await fs.promises.access(path, fs.constants.R_OK);
+    console.log(`Found ${desc} at ${path}`);
+  } catch (e) {
+    throw new Error(`Cannot access ${desc} at ${path}. Error: ${e}`);
   }
 }
 
 async function main() {
   try {
+    // Verify files exist before proceeding
+    await verifyFile(CW721_PATH, "CW721 contract");
+    await verifyFile(FACTORY_PATH, "Factory contract");
+
     const { wallet, client } = await createClient(RPC_ENDPOINT, MNEMONIC, PREFIX, GAS_PRICE);
     const [account] = await wallet.getAccounts();
     console.log(`Using account: ${account.address}`);
 
-    console.log("Uploading contract...");
-    const wasm = fs.readFileSync(CONTRACT_PATH);
-    const uploadGas = await estimateGas(client, account.address, [{ typeUrl: "/cosmwasm.wasm.v1.MsgStoreCode", value: { sender: account.address, wasm_byte_code: wasm }}]);
-    const { codeId } = await client.upload(account.address, wasm, uploadGas);
-    console.log(`Code ID: ${codeId}`);
+    // First upload the CW721-base contract
+    console.log("\nUploading CW721-base contract...");
+    const cw721Wasm = fs.readFileSync(CW721_PATH);
+    const { codeId: cw721CodeId } = await client.upload(account.address, cw721Wasm, "auto");
+    console.log(`CW721 Code ID: ${cw721CodeId}`);
+    await sleep(1500);
 
-    console.log("Instantiating...");
+    // Upload factory contract
+    console.log("\nUploading factory contract...");
+    const factoryWasm = fs.readFileSync(FACTORY_PATH);
+    const { codeId: factoryCodeId } = await client.upload(account.address, factoryWasm, "auto");
+    console.log(`Factory Code ID: ${factoryCodeId}`);
+    await sleep(1500);
+
+    // Instantiate factory with CW721 code ID
+    console.log("\nInstantiating factory...");
     const instantiateMsg = {
-      name: "EVM Logs Test",
-      symbol: "EVT",
-      minter: account.address,
+      name: "CW721 Factory",
+      symbol: "FACT",
+      admin: account.address,
+      cw721_code_id: cw721CodeId,
     };
-    const instantiateGas = await estimateGas(client, account.address, [{ typeUrl: "/cosmwasm.wasm.v1.MsgInstantiateContract", value: { sender: account.address, code_id: codeId, msg: instantiateMsg, funds: [] }}]);
-    const { contractAddress } = await client.instantiate(account.address, codeId, instantiateMsg, "EVM Logs Test NFT", instantiateGas);
-    console.log(`Contract: ${contractAddress}`);
 
-    const evmAddress = seiToEvmAddress(contractAddress);
-    console.log("Contract address format:", contractAddress);
-    console.log("EVM address format:", evmAddress);
+    const { contractAddress: factoryAddress } = await client.instantiate(
+      account.address,
+      factoryCodeId,
+      instantiateMsg,
+      "CW721 Factory",
+      "auto",
+      { admin: account.address }
+    );
+    console.log(`Factory Contract: ${factoryAddress}`);
+    await sleep(1500);
 
-    console.log("Registering pointer...");
-    const registerPointerMsg = {
-      typeUrl: MSG_REGISTER_POINTER_TYPE_URL,
-      value: {
-        sender: account.address,
-        pointer_type: 4,
-        erc_address: evmAddress,
-      },
-    };
-    const registerGas = await estimateGas(client, account.address, [registerPointerMsg]);
-    const pointerResult = await client.signAndBroadcast(account.address, [registerPointerMsg], registerGas);
-    console.log("Pointer registration tx hash:", pointerResult.transactionHash);
-
-    let pointerAddress = "";
-    for (const event of pointerResult.events) {
-      for (const attr of event.attributes) {
-        if (attr.key === "pointer_address") {
-          pointerAddress = attr.value;
-          break;
+    // Create collections
+    const collections = [];
+    for (let i = 0; i < COLLECTIONS_COUNT; i++) {
+      console.log(`\nCreating collection ${i + 1}/${COLLECTIONS_COUNT}...`);
+      const createMsg = {
+        create_collection: {
+          name: `Collection ${i + 1}`,
+          symbol: `COL${i + 1}`,
         }
+      };
+      
+      const result = await client.execute(
+        account.address,
+        factoryAddress,
+        createMsg,
+        "auto"
+      );
+
+      // Extract collection address from events
+      const collectionAddr = result.events
+        .find(e => e.type === "wasm")
+        ?.attributes
+        .find(a => a.key === "_contract_address" || a.key === "collection_address")
+        ?.value;
+
+      if (collectionAddr) {
+        collections.push(collectionAddr);
+        console.log(`Created collection: ${collectionAddr}`);
+      } else {
+        console.warn("Could not find collection address in events:", result.events);
       }
-      if (pointerAddress) break;
-    }
-    console.log("Pointer address:", evmAddress);
 
-    console.log(`Minting ${TOTAL_TOKENS} tokens...`);
-    for (let i = 0; i < TOTAL_TOKENS; i++) {
-      const mintGas = await estimateGas(client, account.address, [
-        {
-          typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-          value: {
-            sender: account.address,
-            contract: contractAddress,
-            msg: { mint: { token_id: i.toString(), owner: account.address } },
-            funds: [],
-          },
-        },
-      ]);
-      await client.execute(account.address, contractAddress, { mint: { token_id: i.toString(), owner: account.address } }, mintGas);
-      if (i % 10 === 0) console.log(`Minted ${i}`);
+      await sleep(1500);
     }
 
-    console.log("Executing batch transaction...");
-    const sends = Array.from({ length: NUM_BATCHES }, (_, batch) => ({
-      typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-      value: {
-        sender: account.address,
-        contract: contractAddress,
-        msg: Buffer.from(
-          JSON.stringify({
-            batch_send: {
-              sends: Array.from({ length: BATCH_SIZE }, (_, i) => ({
-                token_id: (batch * BATCH_SIZE + i).toString(),
-                recipient: RECIPIENT,
-              })),
-            },
-          })
-        ),
-        funds: [],
-      },
-    }));
+    // Query collections
+    console.log("\nQuerying collections...");
+    const collectionsResponse = await client.queryContractSmart(factoryAddress, {
+      collections: {}
+    });
+    console.log("Collections:", collectionsResponse);
 
-    const batchGas = await estimateGas(client, account.address, sends);
-    const result = await client.signAndBroadcast(account.address, sends, batchGas);
-    console.log("Tx hash:", result.transactionHash);
+    // Mint tokens for each collection in batches
+    for (let collectionIndex = 0; collectionIndex < collections.length; collectionIndex++) {
+      const collectionAddr = collections[collectionIndex];
+      console.log(`\nMinting tokens for collection ${collectionIndex + 1}/${collections.length}`);
+      
+      for (let i = 0; i < TOKENS_PER_COLLECTION; i += BATCH_SIZE) {
+        const batchSize = Math.min(BATCH_SIZE, TOKENS_PER_COLLECTION - i);
+        const tokenIds = Array.from({ length: batchSize }, (_, index) => `${collectionIndex}-${i + index}`);
+        
+        const mintMsg = {
+          batch_mint: {
+            collection_addr: collectionAddr,
+            token_ids: tokenIds,
+            owner: account.address
+          }
+        };
+
+        const result = await client.execute(
+          account.address,
+          factoryAddress,
+          mintMsg,
+          "auto"
+        );
+
+        console.log(`Minted tokens ${i + 1} to ${i + batchSize}. Tx hash: ${result.transactionHash}`);
+        await sleep(1500);
+      }
+    }
+
+    // Test batch transfers
+    console.log("\nExecuting batch transfers...");
+    for (const collectionAddr of collections) {
+      const transfers = Array.from({ length: BATCH_SIZE }, (_, i) => ({
+        collection_addr: collectionAddr,
+        token_id: `0-${i}`,
+        recipient: RECIPIENT
+      }));
+
+      const transferMsg = {
+        batch_transfer: { transfers }
+      };
+
+      const result = await client.execute(
+        account.address,
+        factoryAddress,
+        transferMsg,
+        "auto"
+      );
+
+      console.log(`Batch transfer completed. Tx hash: ${result.transactionHash}`);
+      await sleep(1500);
+    }
+
+    console.log("\nTest completed successfully!");
   } catch (error) {
     console.error("Error:", error);
+    process.exit(1);
   }
 }
 

@@ -8,6 +8,19 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
-    // Add any other custom errors you like here.
-    // Look at https://docs.rs/thiserror/1.0.21/thiserror/ for details.
+
+    #[error("Unknown reply id: {id}")]
+    UnknownReplyId { id: u64 },
+
+    #[error("No wasm event found in reply")]
+    NoWasmEvent {},
+
+    #[error("No contract address found in reply attributes")]
+    NoContractAddress {},
+
+    #[error("Collection not found: {addr}")]
+    CollectionNotFound { addr: String },
+
+    #[error("Failed to instantiate CW721 contract")]
+    InstantiateFailed {},
 }
