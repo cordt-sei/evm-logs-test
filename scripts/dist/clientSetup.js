@@ -3,7 +3,7 @@ import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
 import { GasPrice, calculateFee } from "@cosmjs/stargate";
 import { createRegistry } from "./registry.js";
-const FIXED_GAS = 2_000_000;
+const FIXED_GAS = 9_750_000;
 export async function createClient(rpcEndpoint, mnemonic, prefix, gasPriceStr) {
     const wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, { prefix });
     const registry = createRegistry();

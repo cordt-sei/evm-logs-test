@@ -26,10 +26,10 @@ const TOKENS_PER_COLLECTION = 10;
 const RECIPIENT = "sei1wev8ptzj27aueu04wgvvl4gvurax6rj5yrag90";
 
 const FIXED_GAS = {
-  UPLOAD: 2_000_000,
-  INSTANTIATE: 500_000,
-  EXECUTE: 300_000,
-  BATCH: 1_000_000
+  UPLOAD: 5_000_000,
+  INSTANTIATE: 2_000_000,
+  EXECUTE: 1_000_000,
+  BATCH: 2_000_000
 };
 
 async function sleep(ms: number) {

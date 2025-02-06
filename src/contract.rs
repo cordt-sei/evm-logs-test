@@ -2,16 +2,15 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg, SubMsg, Reply, Empty};
 use cw2::set_contract_version;
-use cw721_base::msg::{ExecuteMsg as Cw721ExecuteMsg, QueryMsg as Cw721QueryMsg};
-use cw721::OwnerOfResponse;
+use cw721_base::msg::ExecuteMsg as Cw721ExecuteMsg;
+use cw721_base::InstantiateMsg as Cw721BaseInstantiateMsg;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, CollectionsResponse, CollectionInfo, TokensResponse, BatchMintMsg, BatchTransferMsg};
-use crate::state::{ADMIN, COLLECTIONS, PENDING_COLLECTION, CollectionData, PendingCollection};
+use crate::state::{ADMIN, COLLECTIONS, CW721_CODE_ID, CollectionData, PENDING_COLLECTION, PendingCollection};
 
 const CONTRACT_NAME: &str = "crates.io:cw721-factory";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const CW721_CODE_ID: u64 = 1; // Replace with actual code ID in production
 const INSTANTIATE_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -24,10 +23,12 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let admin = deps.api.addr_validate(&msg.admin)?;
     ADMIN.save(deps.storage, &admin)?;
+    CW721_CODE_ID.save(deps.storage, &msg.cw721_code_id)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
-        .add_attribute("admin", admin))
+        .add_attribute("admin", admin)
+        .add_attribute("cw721_code_id", msg.cw721_code_id.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -64,8 +65,11 @@ pub fn execute_create_collection(
         symbol: symbol.clone(),
     })?;
 
-    // Prepare instantiate message for new CW721 contract
-    let instantiate_msg = cw721_base::InstantiateMsg {
+    // Get the CW721 code ID
+    let code_id = CW721_CODE_ID.load(deps.storage)?;
+
+    // Prepare a minimal instantiate message for new CW721 contract
+    let instantiate_msg = Cw721BaseInstantiateMsg {
         name: name.clone(),
         symbol: symbol.clone(),
         minter: info.sender.to_string(),
@@ -73,10 +77,10 @@ pub fn execute_create_collection(
 
     let instantiate = WasmMsg::Instantiate {
         admin: Some(info.sender.to_string()),
-        code_id: CW721_CODE_ID,
+        code_id,
         msg: to_json_binary(&instantiate_msg)?,
         funds: vec![],
-        label: format!("CW721 Collection - {}", name),
+        label: format!("{}-{}", name, symbol), // Shorter label
     };
 
     Ok(Response::new()
@@ -131,15 +135,17 @@ pub fn execute_batch_transfer(
     
     // Verify ownership for all tokens before performing transfers
     for transfer in msg.transfers.iter() {
-        let owner_msg: Cw721QueryMsg<Empty> = Cw721QueryMsg::OwnerOf { 
-            token_id: transfer.token_id.clone(), 
-            include_expired: None 
+        // Query CW721 contract directly
+        let collection = COLLECTIONS.load(deps.storage, &transfer.collection_addr)?;
+        let query_msg = cw721::Cw721QueryMsg::OwnerOf {
+            token_id: transfer.token_id.clone(),
+            include_expired: None,
         };
-        let owner_response: OwnerOfResponse = deps.querier.query_wasm_smart(
-            &transfer.collection_addr,
-            &owner_msg,
+        let owner_response: cw721::OwnerOfResponse = deps.querier.query_wasm_smart(
+            collection.address.to_string(),
+            &query_msg,
         )?;
-        
+
         if owner_response.owner != info.sender.to_string() {
             return Err(ContractError::Unauthorized {});
         }
@@ -175,6 +181,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
 
 pub fn handle_instantiate_reply(deps: DepsMut, msg: Reply) -> Result<Response, ContractError> {
     let res = msg.result.unwrap();
+    // Parse the event attributes to get the contract address
     let events = res.events;
     let wasm_event = events
         .iter()
@@ -249,6 +256,7 @@ mod tests {
             name: "Test Factory".to_string(),
             symbol: "TFAC".to_string(),
             admin: "admin".to_string(),
+            cw721_code_id: 123,
         };
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());

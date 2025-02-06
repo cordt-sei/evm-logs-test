@@ -5,6 +5,7 @@ pub struct InstantiateMsg {
     pub name: String,
     pub symbol: String,
     pub admin: String,
+    pub cw721_code_id: u64,
 }
 
 #[cw_serde]
