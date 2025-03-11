@@ -44,8 +44,10 @@ async function main() {
         const instantiateMsg = {
             name: "EVM Logs Test",
             symbol: "EVT",
-            minter: account.address
-        };
+            admin: account.address,
+            cw721_code_id: codeId
+          };
+          
 
         console.log("Instantiating...");
         const { contractAddress } = await client.instantiate(
@@ -54,7 +56,8 @@ async function main() {
             instantiateMsg,
             "EVM Logs Test NFT",
             "auto"
-        );
+          );
+          
         console.log(`Contract: ${contractAddress}`);
 
         const evmAddress = seiToEvmAddress(contractAddress);

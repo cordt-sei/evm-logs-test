@@ -47,7 +47,7 @@ async function estimateGas(client: SigningCosmWasmClient, sender: string, messag
     return estimatedGas;
   } catch (error) {
     console.warn("Gas estimation failed, falling back to auto:", error);
-    return "auto"; // Fallback to auto if estimation fails
+    return "auto";
   }
 }
 
